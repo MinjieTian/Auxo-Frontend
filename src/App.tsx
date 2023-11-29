@@ -3,8 +3,10 @@ import './App.css'
 import { FC, useEffect, useState } from 'react'
 import type { ColumnsType } from 'antd/es/table';
 import { Table, Slider, Modal, Button, Form, Input, InputNumber } from 'antd';
+import debounce from 'lodash/debounce';
+import { editOrderJson, } from './utils';
 
-interface DataType {
+export interface DataType {
   id: number;
   description: string;
   price: number;
@@ -17,10 +19,25 @@ type FieldType = {
   quantity?: number;
 };
 
+export interface OrderObj {
+  [key: number]: number
+}
+
+export interface OrderJson {
+  selectedParts: PartInOrder[]
+}
+
+export interface PartInOrder {
+  id: number,
+  quantity: number
+}
+
 const App: FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [parts, setParts] = useState<DataType[]>([]);
   const [showModal, setShowModal] = useState<boolean>(false);
+  const [form] = Form.useForm();
+  const [orderList, setOrderList] = useState<OrderObj>({});
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -35,6 +52,43 @@ const App: FC = () => {
 
   }, [])
 
+  const changeOrderList = debounce((id, e) => {
+    setOrderList({ ...orderList, [id]: e });
+  }, 200)
+
+  const onPlaceOrder = async () => {
+    const orderJson = await editOrderJson(orderList);
+    setLoading(true);
+    try {
+      const result = (await axios.post('http://localhost:5189/orders', orderJson)).data;
+      const parts = await axios.get('http://localhost:5189/parts');
+      setParts(parts.data.result)
+      alert(`Your total price is ${(result.totalPrice).toFixed(2)}`)
+    } catch (err: any) {
+      console.log(err)
+    }
+    setOrderList({});
+    setLoading(false);
+  }
+
+  const onCreatePart = async (value: FieldType) => {
+    setLoading(true);
+    try {
+      const result = await axios.post('http://localhost:5189/parts', {
+        price: value.price,
+        description: value.description,
+        quantity: value.quantity
+      })
+      form.resetFields();
+      setLoading(false);
+      setShowModal(false);
+      setParts(result.data.result)
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  //antd table config
   const columns: ColumnsType<DataType> = [
     {
       title: 'Id',
@@ -55,23 +109,26 @@ const App: FC = () => {
       title: 'Quantity',
       dataIndex: 'quantity',
       key: 'quantity',
-      render: (_: any, { quantity }: DataType) =>
-        <Slider
+      render: (_: any, { quantity, id }: DataType) => {
+        if (quantity <= 0) return 'Out of Stock'
+        return <Slider
           max={quantity}
           min={0}
           defaultValue={0}
+          onChange={e => changeOrderList(id, e)}
         />
+      }
 
     }
   ]
 
-  console.log(showModal)
   if (loading) return null
+
   return (
     <div>
       <Table
         columns={columns}
-        dataSource={parts}
+        dataSource={[...parts]}
         rowKey={'id'}
       />
 
@@ -82,15 +139,25 @@ const App: FC = () => {
       </Button>
 
 
+      <Button
+        onClick={onPlaceOrder}
+      >
+        Place Order
+      </Button>
+
+
       <Modal
         title="Add new part"
         open={showModal}
         onCancel={() => setShowModal(false)}
+        onOk={form.submit}
       >
         <Form
           layout='horizontal'
           labelCol={{ span: 5 }}
           wrapperCol={{ span: 14 }}
+          onFinish={onCreatePart}
+          form={form}
         >
           <Form.Item<FieldType>
             label="Description"
@@ -115,7 +182,6 @@ const App: FC = () => {
           </Form.Item>
         </Form>
       </Modal>
-
     </div>
   )
 }
