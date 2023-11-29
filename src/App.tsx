@@ -125,7 +125,7 @@ const App: FC = () => {
         if (quantity <= 0) return 'Out of Stock'
         return( 
           <div className={'Quantity'}>
-            <span>Current: {quantity}</span>
+            <span>In stock: {quantity}</span>
             <Slider
               max={quantity}
               min={0}
