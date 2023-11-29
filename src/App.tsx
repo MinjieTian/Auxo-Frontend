@@ -5,6 +5,16 @@ import type { ColumnsType } from 'antd/es/table';
 import { Table, Slider, Modal, Button, Form, Input, InputNumber } from 'antd';
 import debounce from 'lodash/debounce';
 import { editOrderJson, } from './utils';
+import './App.css';
+
+interface OrderResult {
+  items: {
+    description: string,
+    quantity: number,
+    price: number
+  }[],
+  totalPrice: number
+}
 
 export interface DataType {
   id: number;
@@ -60,10 +70,12 @@ const App: FC = () => {
     const orderJson = await editOrderJson(orderList);
     setLoading(true);
     try {
-      const result = (await axios.post('http://localhost:5189/orders', orderJson)).data;
+      const result: OrderResult = (await axios.post('http://localhost:5189/orders', orderJson)).data;
       const parts = await axios.get('http://localhost:5189/parts');
       setParts(parts.data.result)
-      alert(`Your total price is ${(result.totalPrice).toFixed(2)}`)
+      let resultString = `Your total price is ${(result.totalPrice).toFixed(2)}\n`;
+      result.items.forEach((e) => {resultString = resultString + `${e.description}    Quantity: ${e.quantity}    Price: ${e.price} \n`})
+      alert(resultString);
     } catch (err: any) {
       console.log(err)
     }
@@ -111,12 +123,17 @@ const App: FC = () => {
       key: 'quantity',
       render: (_: any, { quantity, id }: DataType) => {
         if (quantity <= 0) return 'Out of Stock'
-        return <Slider
-          max={quantity}
-          min={0}
-          defaultValue={0}
-          onChange={e => changeOrderList(id, e)}
-        />
+        return( 
+          <div className={'Quantity'}>
+            <span>Current: {quantity}</span>
+            <Slider
+              max={quantity}
+              min={0}
+              defaultValue={0}
+              onChange={e => changeOrderList(id, e)}
+            />
+          </div>
+        )
       }
 
     }
