@@ -151,6 +151,7 @@ const App: FC = () => {
 
       <Button
         onClick={() => setShowModal(true)}
+        id='btn-App-AddNewPart'
       >
         Add new part
       </Button>
@@ -158,6 +159,7 @@ const App: FC = () => {
 
       <Button
         onClick={onPlaceOrder}
+        type='primary'
       >
         Place Order
       </Button>
