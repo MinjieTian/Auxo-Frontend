@@ -2,12 +2,12 @@ import axios from 'axios'
 import './App.css'
 import { FC, useEffect, useState } from 'react'
 import type { ColumnsType } from 'antd/es/table';
-import { Table, Slider, Modal, Button, Form, Input, InputNumber } from 'antd';
+import { Table, Slider, Modal, Button, Form, Input, InputNumber, Spin } from 'antd';
 import debounce from 'lodash/debounce';
-import { editOrderJson, } from './utils';
+import { editOrderJson, useCreatePart, usePlaceOrder } from './utils';
 import './App.css';
 
-interface OrderResult {
+export interface OrderResult {
   items: {
     description: string,
     quantity: number,
@@ -23,7 +23,7 @@ export interface DataType {
   quantity: number;
 }
 
-type FieldType = {
+export type NewPartsType = {
   description?: string;
   price?: number;
   quantity?: number;
@@ -48,6 +48,8 @@ const App: FC = () => {
   const [showModal, setShowModal] = useState<boolean>(false);
   const [form] = Form.useForm();
   const [orderList, setOrderList] = useState<OrderObj>({});
+  const { onCreatePart } = useCreatePart(setLoading, setShowModal, setParts, form);
+  const { onPlaceOrder } = usePlaceOrder(setLoading, setParts, setOrderList, orderList);
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -65,40 +67,6 @@ const App: FC = () => {
   const changeOrderList = debounce((id, e) => {
     setOrderList({ ...orderList, [id]: e });
   }, 200)
-
-  const onPlaceOrder = async () => {
-    const orderJson = await editOrderJson(orderList);
-    setLoading(true);
-    try {
-      const result: OrderResult = (await axios.post('http://localhost:5189/orders', orderJson)).data;
-      const parts = await axios.get('http://localhost:5189/parts');
-      setParts(parts.data.result)
-      let resultString = `Your total price is ${(result.totalPrice).toFixed(2)}\n`;
-      result.items.forEach((e) => {resultString = resultString + `${e.description}    Quantity: ${e.quantity}    Price: ${e.price} \n`})
-      alert(resultString);
-    } catch (err: any) {
-      console.log(err)
-    }
-    setOrderList({});
-    setLoading(false);
-  }
-
-  const onCreatePart = async (value: FieldType) => {
-    setLoading(true);
-    try {
-      const result = await axios.post('http://localhost:5189/parts', {
-        price: value.price,
-        description: value.description,
-        quantity: value.quantity
-      })
-      form.resetFields();
-      setLoading(false);
-      setShowModal(false);
-      setParts(result.data.result)
-    } catch (err) {
-      console.log(err);
-    }
-  }
 
   //antd table config
   const columns: ColumnsType<DataType> = [
@@ -123,7 +91,7 @@ const App: FC = () => {
       key: 'quantity',
       render: (_: any, { quantity, id }: DataType) => {
         if (quantity <= 0) return 'Out of Stock'
-        return( 
+        return (
           <div className={'Quantity'}>
             <span>In stock: {quantity}</span>
             <Slider
@@ -139,7 +107,7 @@ const App: FC = () => {
     }
   ]
 
-  if (loading) return null
+  if (loading) return <Spin/>
 
   return (
     <div>
@@ -178,26 +146,26 @@ const App: FC = () => {
           onFinish={onCreatePart}
           form={form}
         >
-          <Form.Item<FieldType>
+          <Form.Item<NewPartsType>
             label="Description"
             name="description"
             rules={[{ required: true, message: 'Please input your description!' }]}
           >
             <Input />
           </Form.Item>
-          <Form.Item<FieldType>
+          <Form.Item<NewPartsType>
             label="Price"
             name="price"
             rules={[{ required: true, message: 'Please input your price!' }]}
           >
-            <InputNumber />
+            <InputNumber min={0.1} />
           </Form.Item>
-          <Form.Item<FieldType>
+          <Form.Item<NewPartsType>
             label="Quantity"
             name="quantity"
             rules={[{ required: true, message: 'Please input your quantity!' }]}
           >
-            <InputNumber />
+            <InputNumber min={1} />
           </Form.Item>
         </Form>
       </Modal>
